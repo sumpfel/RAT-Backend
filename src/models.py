@@ -6,9 +6,9 @@ class DBUser(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     user_settings_id = Column(Integer, ForeignKey("usersettings.id"))
-    username = Column(VARCHAR(50), unique=True, notnull=True)
-    password = Column(VARCHAR(50), notnull=True)
-    privileges = Column(Integer, notnull=True)
+    username = Column(VARCHAR(50), unique=True, nullable=False)
+    password = Column(VARCHAR(50), nullable=False)
+    privileges = Column(Integer, nullable=False, default=0)
 
 class DBUserSettings(Base):
     __tablename__ = "UserSettings"
@@ -52,6 +52,7 @@ class DBNetworkObjectLogin(Base):
 
 class DBNetworkObjectSnmpCommunity(Base):
     __tablename__ = "NetworkObjectSnmpCommunity"
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     network_object_id = Column(Integer, ForeignKey("networkobject.id"), index=True)
     user_id = Column(Integer, ForeignKey("user.id"), index=True)
     read_community = Column(VARCHAR(50))
