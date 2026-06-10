@@ -28,7 +28,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
     return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"status": "validation_error", "errors": errors})
 
-# app.include(xxx.router)
+# app.include_router(xxx.router)
+
+app.include_router(user.router)
 
 @app.get("/")
 def root():
@@ -36,4 +38,4 @@ def root():
 
 if __name__ == '__main__':
     # TODO: Make IP and Port Configurable (config.txt)
-    uvicorn.run(app, host="127.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
