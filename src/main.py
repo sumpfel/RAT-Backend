@@ -6,7 +6,7 @@ from starlette.responses import JSONResponse
 
 from database import engine
 import models
-from routers import user
+from routers import user, networkObject, networkObjectConnection, networkObjectConnectionLink
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -29,6 +29,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"status": "validation_error", "errors": errors})
 
 # app.include(xxx.router)
+app.include_router(networkObject.router)
+app.include_router(networkObjectConnection.router)
+app.include_router(networkObjectConnectionLink.router)
 
 @app.get("/")
 def root():
