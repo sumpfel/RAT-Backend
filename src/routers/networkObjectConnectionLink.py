@@ -7,26 +7,27 @@ from pydantic import BaseModel, Field, field_validator, ValidationError
 from sqlalchemy import null
 from sqlalchemy.orm import Session
 
+from auth import get_current_user
 from database import get_db
 import models
 from routers.base import BaseAPI
 
 router = APIRouter(prefix="/networkObjectConnectionLink", tags = ["networkObjectConnectionLink"])
 
-class networkObjectConnectionLinkBase(BaseModel):
+class NetworkObjectConnectionLinkBase(BaseModel):
     network_object_id : int = Field(..., ge=0)
     network_object_connection_id : int = Field(..., ge=0)
 
-class networkObjectConnectionLinkID(BaseModel):
+class NetworkObjectConnectionLinkID(BaseModel):
     id: int = Field(..., ge=0)
 
-class networkObjectConnectionLinkCreate(networkObjectConnectionLinkBase):
+class NetworkObjectConnectionLinkCreate(NetworkObjectConnectionLinkBase):
     pass
 
-class networkObjectConnectionLinkEdit(networkObjectConnectionLinkBase, networkObjectConnectionLinkID):
+class NetworkObjectConnectionLinkEdit(NetworkObjectConnectionLinkBase, NetworkObjectConnectionLinkID):
     pass
 
-class networkObjectConnectionLinkResponse(networkObjectConnectionLinkEdit):
+class NetworkObjectConnectionLinkResponse(NetworkObjectConnectionLinkEdit):
     model_config = {"from_attributes": True}
 
 

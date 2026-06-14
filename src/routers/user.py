@@ -22,6 +22,7 @@ class UserIn(UserBase):
     hashed_password: str = Field(...)
 
 class UserOut(UserBase):
+    id: int = Field(...)
     privileges: int = Field(default=0)
 
 @cbv(router)

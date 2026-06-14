@@ -7,19 +7,20 @@ from pydantic import BaseModel, Field, field_validator, ValidationError
 from sqlalchemy import null
 from sqlalchemy.orm import Session
 
+from auth import get_current_user
 from database import get_db
 import models
 from routers.base import BaseAPI
 
-router = APIRouter(prefix="/networkObject", tags = ["networkObject"])
+router = APIRouter(prefix="/networkObject", tags = ["networkObject"], dependencies=[Depends(get_current_user)])
 
-class networkObjectBase(BaseModel):
+class NetworkObjectBase(BaseModel):
     json_data : str = Field(...)
 
-class networkObjectID(BaseModel):
+class NetworkObjectOut(BaseModel):
     id: int = Field(..., ge=0)
 
-class networkObjectCreate(networkObjectBase):
+class networkObjectCreate(NetworkObjectBase):
     @field_validator("json_data")
     @classmethod
     def check_password_complexity(cls, json_str: str) -> str:
@@ -29,7 +30,7 @@ class networkObjectCreate(networkObjectBase):
         except:
             raise ValidationError("string not json")
 
-class networkObjectEdit(networkObjectBase, networkObjectID):
+class networkObjectEdit(NetworkObjectBase, NetworkObjectOut):
     pass
 
 class networkObjectResponse(networkObjectEdit):
