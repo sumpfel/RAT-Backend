@@ -13,7 +13,9 @@ class DBUser(Base):
 class DBUserSettings(Base):
     __tablename__ = "UserSettings"
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    json_data = Column(VARCHAR(1000))
+    zoom = Column(Integer, default=100)
+    show_ports = Column(Boolean, default=False)
+    show_interfaces = Column(Boolean, default=False)
 
 class DBNetworkObjectPermissions(Base):
     __tablename__ = "NetworkObjectPermissions"
