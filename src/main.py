@@ -32,6 +32,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 app.include_router(networkObject.router)
 app.include_router(networkObjectConnection.router)
 app.include_router(networkObjectConnectionLink.router)
+# app.include_router(xxx.router)
+
+app.include_router(user.router)
 
 @app.get("/")
 def root():
