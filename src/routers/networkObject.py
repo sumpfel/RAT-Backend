@@ -1,11 +1,13 @@
 import json
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends
 from fastapi_restful.cbv import cbv
 from pydantic import BaseModel, Field, field_validator, ValidationError
 from sqlalchemy import null
 from sqlalchemy.orm import Session
+from sqlalchemy.testing.pickleable import User
+from starlette import status
 
 from auth import get_current_user
 from database import get_db
@@ -15,56 +17,60 @@ from routers.base import BaseAPI
 router = APIRouter(prefix="/networkObject", tags = ["networkObject"], dependencies=[Depends(get_current_user)])
 
 class NetworkObjectBase(BaseModel):
-    json_data : str = Field(...)
+    name: str = Field(...)
+    type: str = Field(...)
+    x: int = Field(...)
+    y: int = Field(...)
+    os: str = Field(...)
+    cpu: str = Field(...)
+    gpu: str = Field(...)
+    ram: str = Field(...)
+    specs: str = Field(...)
 
-class NetworkObjectOut(BaseModel):
-    id: int = Field(..., ge=0)
-
-class networkObjectCreate(NetworkObjectBase):
-    @field_validator("json_data")
-    @classmethod
-    def check_password_complexity(cls, json_str: str) -> str:
-        #json_str = json_str.strip()
-        try:
-            json.loads(json_str)
-        except:
-            raise ValidationError("string not json")
-
-class networkObjectEdit(NetworkObjectBase, NetworkObjectOut):
+class NetworkObjectIn(NetworkObjectBase):
     pass
 
-class networkObjectResponse(networkObjectEdit):
+class NetworkObjectOut(NetworkObjectBase):
+    id: int = Field(..., ge=0)
+
     model_config = {"from_attributes": True}
 
-
-
 @cbv(router)
-class networkObjectAPI(BaseAPI):
+class NetworkObjectAPI(BaseAPI):
     db: Session = Depends(get_db)
 
-    @router.get("/", response_model=list[networkObjectResponse])
-    def get_all_networkObjects(self):
+    @router.get("/", response_model=list[NetworkObjectOut])
+    def get_all_networkObjects(self, current_user: models.DBUser = Depends(get_current_user)):
+        # TODO: Only return NetworkObjects that user is allowed to see
+        # NOPermissions hat int zahl permissions = enum
+        # bei 0 oder keiner NOPermission: nicht zurückgeben
+
         return self.db.query(models.DBNetworkObject).all()
 
-    @router.post("/", response_model=networkObjectResponse, status_code=201)
-    def create_networkObject(self, nO: networkObjectCreate):
-        db_nO = models.DBNetworkObject(json_data = nO.json_data)
+    @router.post("/", response_model=NetworkObjectOut, status_code=201)
+    def create_networkObject(self, nO: NetworkObjectIn):
+        db_nO = models.DBNetworkObject(**nO.model_dump()) # AI: How to automatically convert nO to DBNetworkObject
         self.db.add(db_nO)
         self.db.commit()
         self.db.refresh(db_nO)
         return db_nO
 
-    @router.put("/", status_code=201)
-    def edit_networkObject(self,nO: networkObjectEdit):
-        db_nO = self.get_or_404(self.db,models.DBNetworkObject, nO.id)
-        db_nO.json_data = nO.json_data
+    @router.put("/{id}", status_code=201)
+    def edit_networkObject(self, id:int, nO: NetworkObjectIn):
+        db_nO = self.get_or_404(self.db, models.DBNetworkObject, id)
+
+        for key, value in nO.model_dump().items(): # AI: How to automatically update DBNetworkObject with data from n0
+            setattr(db_nO, key, value)
+
         self.db.refresh(db_nO)
         self.db.commit()
-        return {"message": f"Network Object with ID {nO.id} has been updated."}
 
-    @router.delete("/")
-    def delete_item(self, nO_id: networkObjectID):
-        db_nO = self.get_or_404(self.db, models.DBNetworkObject, nO_id.id)
+        raise HTTPException(status_code=status.HTTP_200_OK, detail="NetworkObject updated")
+
+    @router.delete("/{id}")
+    def delete_item(self, id:int, nO: NetworkObjectIn):
+        db_nO = self.get_or_404(self.db, models.DBNetworkObject, id)
         self.db.delete(db_nO)
         self.db.commit()
-        return {"message": f"Network Object with ID {nO_id.id} has been vaporised."}
+
+        raise HTTPException(status_code=status.HTTP_200_OK, detail="NetworkObject deleted")
