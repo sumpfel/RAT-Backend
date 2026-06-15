@@ -17,12 +17,15 @@ router = APIRouter(prefix="/user", tags=["User"])
 
 class UserBase(BaseModel):
     username: str = Field(...)
+    privileges: int = Field(default=0)
 
 class UserIn(UserBase):
     hashed_password: str = Field(...)
 
 class UserOut(UserBase):
-    privileges: int = Field(default=0)
+    id: int = Field(...)
+
+    model_config = {"from_attributes": True}
 
 @cbv(router)
 class UserAPI(BaseAPI):
@@ -43,3 +46,8 @@ class UserAPI(BaseAPI):
     @router.get("/me", response_model=UserOut)
     def get_me(self, current_user: DBUser = Depends(get_current_user)):
         return current_user
+
+    @router.post("/register", response_model=UserOut)
+    def register(self, user: UserIn):
+        # TODO: Make user and usersettings
+        pass
