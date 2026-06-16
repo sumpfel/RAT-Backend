@@ -24,6 +24,10 @@ class NetworkObjectConnectionBase(BaseModel):
 class NetworkObjectConnectionIn(NetworkObjectConnectionBase):
     pass
 
+class NetworkObjectConnectionInNOID(NetworkObjectConnectionBase):
+    nO1: int = Field(...) #ID of interface1
+    nO2: int = Field(...) #ID of interface2
+
 class NetworkObjectConnectionOut(NetworkObjectConnectionBase):
     id: int = Field(...)
 
@@ -38,11 +42,17 @@ class networkObjectAPI(BaseAPI):
         return self.db.query(models.DBNetworkObjectConnection).all()
 
     @router.post("/", response_model=NetworkObjectConnectionOut, status_code=201)
-    def create_networkObjectConnection(self, nOC: NetworkObjectConnectionIn):
+    def create_networkObjectConnection(self, nOC: NetworkObjectConnectionInNOID):
         db_nOC = models.DBNetworkObjectConnection(**nOC.model_dump())
         self.db.add(db_nOC)
         self.db.commit()
         self.db.refresh(db_nOC)
+        db_NO1 = self.get_or_404(self.db,models.DBNetworkObjectInterface,nOC.nO1)
+        db_NO1.network_object_connection_id = db_nOC.id
+
+        db_NO2 = self.get_or_404(self.db,models.DBNetworkObjectInterface,nOC.nO2)
+        db_NO2.network_object_connection_id = db_nOC.id
+        self.db.commit()
         return db_nOC
 
     @router.put("/{id}", status_code=201)

@@ -16,7 +16,7 @@ class DBUserSettings(Base):
     __tablename__ = "UserSettings"
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     user_id = Column(Integer, ForeignKey("User.id"), index=True)
-    zoom = Column(Integer, default=1)
+    zoom = Column(Integer, default=100)
     showPorts = Column(Boolean, default=False)
     showInterfaces = Column(Boolean, default=False)
 

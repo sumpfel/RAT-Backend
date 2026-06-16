@@ -6,7 +6,7 @@ from starlette.responses import JSONResponse
 
 from database import engine
 import models
-from routers import user, networkObject, networkObjectConnection, networkObjectConnectionLink
+from routers import user, networkObject, networkObjectConnection, networkObjectInterface, networkObjectPermission, login, snmpSettings
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -31,8 +31,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 # app.include(xxx.router)
 app.include_router(networkObject.router)
 app.include_router(networkObjectConnection.router)
-app.include_router(networkObjectConnectionLink.router)
-# app.include_router(xxx.router)
+app.include_router(networkObjectInterface.router)
+app.include_router(networkObjectPermission.router)
+app.include_router(login.router)
+app.include_router(snmpSettings.router)
 
 app.include_router(user.router)
 

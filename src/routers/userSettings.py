@@ -34,12 +34,12 @@ class UserAPI(BaseAPI):
     def get_all_userSettings(self, current_user: DBUser = Depends(get_current_user)):
         return self.get_or_404(self.db,models.DBUserSettings,current_user.user_settings_id)
 
-    @router.post("/", status_code=200)
+    @router.put("/", status_code=200)
     def update_userSettings(self, userSettings:UserSettingsIn, current_user: DBUser = Depends(get_current_user)):
         db_uS = self.get_or_404(self.db,models.DBUserSettings,current_user.user_settings_id)
         db_uS.zoom = userSettings.zoom
-        db_uS.show_ports = userSettings.show_ports
-        db_uS.show_interfaces = userSettings.show_interfaces
+        db_uS.showPorts = userSettings.show_ports
+        db_uS.showInterfaces = userSettings.show_interfaces
         self.db.refresh(db_uS)
         self.db.commit()
         return HTTPException(status_code=200)
