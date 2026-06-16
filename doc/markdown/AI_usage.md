@@ -200,3 +200,42 @@ client using HttpClient, needed for any browser/Blazor frontend); PUT handlers
 hard-coded.
 
 ---------
+
+
+=========  C# FRONTEND LINK (minimal backend additions)  =========
+
+Model: Claude (claude-opus-4-8) via Claude Code
+Date: 2026-06-16
+
+Context: the C# client (RAT-Client) got a real IDatabaseConnection implementation
+(DatabaseConnection.cs) that talks to this backend over HTTP. The user asked NOT to
+change the backend unless necessary. Two things were necessary and are documented here.
+Marked in code with `KI Claude <KI-10>`.
+
+<KI-10>  src/routers/user.py
+          - Added `can_create` to UserBase/UserOut/UserIn (validation_alias "canCreate"
+            so it maps to the DBUser.canCreate column, populate_by_name so both names
+            work). The client needs to know whether a user may create NetworkObjects
+            (maps to RAT_Data.User.CanCreate / NetworkUser.CanCreate).
+          - register() now persists `canCreate` from the request.
+          - Added `GET /user/` (list all users, auth required). The client needs it to
+            resolve the user_id stored in a NetworkObjectPermission back to a username
+            (Access Control tab) and to implement IDatabaseConnection.GetAllUsers().
+
+         src/routers/networkObjectInterface.py
+          #KI Claude detected problem why/what: NetworkObjectInterfaceOut.
+          network_object_connection_id was typed as a non-optional `int`, but the column
+          is NULL for any interface not attached to a connection. GET /networkObjectInterface/
+          then crashed with a ResponseValidationError (None is not an int), which blocked
+          the C# client from loading the topology. Changed the type to `int | None`.
+
+Verified against a throwaway DB with the live server: form login -> JWT; /user/me and
+/user/ return can_create; NetworkObject create/list; the creator's permission row is
+Owner(4); per-device login create/list; PUT /user/settings/ returns 200; and after the
+interface fix, interface + connection create/list serialize correctly. All response
+shapes match the client's DTOs.
+
+Still open (unchanged): hard-coded SECRET_KEY; default admin password 'admin'; no CORS
+(not needed for the desktop HttpClient client).
+
+---------

@@ -16,7 +16,11 @@ router = APIRouter(prefix="/networkObjectInterface", tags=["networkObjectInterfa
 
 class NetworkObjectInterfaceBase(BaseModel):
     network_object_id: int = Field(...)
-    network_object_connection_id: int = Field(None)
+    # KI Claude <KI-10> detected problem why/what: this column is NULL for any interface
+    # that is not attached to a connection, but it was typed as a non-optional `int`. The
+    # GET list endpoint then crashed with a ResponseValidationError (None is not an int),
+    # which blocked the C# client from loading the topology. Made it Optional[int].
+    network_object_connection_id: int | None = Field(None)
     name: str = Field(...)
     max_speed: int = Field(...)
     is_up: bool = Field(...)

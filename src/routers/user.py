@@ -16,6 +16,11 @@ router = APIRouter(prefix="/user", tags=["User"])
 class UserBase(BaseModel):
     username: str = Field(...)
     is_admin: bool = Field(default=0)
+    # KI Claude <KI-10>: expose canCreate so the C# client knows whether a user may
+    # create NetworkObjects (RAT_Data.User.CanCreate / NetworkUser.CanCreate).
+    can_create: bool = Field(default=False, validation_alias="canCreate")
+
+    model_config = {"populate_by_name": True}  # KI Claude <KI-10>
 
 class UserIn(UserBase):
     # KI Claude detected problem why/what: field was named `hashed_password` but the
@@ -26,7 +31,7 @@ class UserIn(UserBase):
 class UserOut(UserBase):
     id: int = Field(...)
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}  # KI Claude <KI-10>
 
 @cbv(router)
 class UserAPI(BaseAPI):
@@ -48,6 +53,15 @@ class UserAPI(BaseAPI):
     def get_me(self, current_user: DBUser = Depends(get_current_user)):
         return current_user
 
+    # KI Claude <KI-10>
+    # List all users. The C# client needs this to resolve the user_id stored in a
+    # NetworkObjectPermission back to a username (Access Control tab) and to build
+    # its IDatabaseConnection.GetAllUsers(). Only authenticated users may call it.
+    @router.get("/", response_model=list[UserOut])
+    def get_all_users(self, current_user: DBUser = Depends(get_current_user)):
+        return self.db.query(DBUser).all()
+    # KI END <KI-10>
+
     @router.post("/register", response_model=UserOut)
     def register(self, user: UserIn):
         # KI Claude <KI-7>
@@ -61,6 +75,7 @@ class UserAPI(BaseAPI):
             username=user.username,
             password=hash_password(user.password),
             is_admin=user.is_admin,
+            canCreate=user.can_create,  # KI Claude <KI-10>
         )
         self.db.add(db_user)
         self.db.commit()
