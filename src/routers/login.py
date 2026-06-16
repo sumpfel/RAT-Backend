@@ -66,8 +66,9 @@ class LoginAPI(BaseAPI):
         for key, value in login.model_dump().items(): # AI: How to automatically update DBNetworkObject with data from n0
             setattr(db_login, key, value)
 
+        # KI Claude detected problem why/what: refresh() before commit() discarded the edits.
+        self.db.commit()  # KI Claude <KI-9>
         self.db.refresh(db_login)
-        self.db.commit()
 
         raise HTTPException(status_code=status.HTTP_200_OK)
 

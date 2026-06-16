@@ -1,6 +1,7 @@
 from typing import Text
 
 from sqlalchemy import Column, Integer, String, Float, VARCHAR, ForeignKey, Boolean
+from sqlalchemy.orm import relationship  # KI Claude <KI-6>
 from database import Base
 
 class DBUser(Base):
@@ -9,8 +10,14 @@ class DBUser(Base):
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     username = Column(VARCHAR(50), unique=True, nullable=False)
     password = Column(VARCHAR(70), nullable=False)
-    privileges = Column(Integer, nullable=False, default=0)
+    is_admin = Column(Boolean, nullable=False, default=0)
     canCreate = Column(Boolean, default=False)
+
+    # KI Claude <KI-6>
+    # One-to-one link to the user's settings. Lets routes use current_user.settings
+    # instead of the non-existent current_user.user_settings_id.
+    settings = relationship("DBUserSettings", uselist=False, back_populates="user")
+    # KI END <KI-6>
 
 class DBUserSettings(Base):
     __tablename__ = "UserSettings"
@@ -19,6 +26,8 @@ class DBUserSettings(Base):
     zoom = Column(Integer, default=100)
     showPorts = Column(Boolean, default=False)
     showInterfaces = Column(Boolean, default=False)
+
+    user = relationship("DBUser", back_populates="settings")  # KI Claude <KI-6>
 
 
 class DBNetworkObjectPermission(Base):

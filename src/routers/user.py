@@ -8,19 +8,20 @@ from database import get_db
 import models
 from models import DBUser
 from routers.base import BaseAPI
-from auth import Token, get_current_user, verify_password, create_access_token
+from auth import Token, get_current_user, verify_password, create_access_token, hash_password  # KI Claude <KI-7>
 
 router = APIRouter(prefix="/user", tags=["User"])
-
-# TODO: If there are no users, create admin user
 
 
 class UserBase(BaseModel):
     username: str = Field(...)
-    privileges: int = Field(default=0)
+    is_admin: bool = Field(default=0)
 
 class UserIn(UserBase):
-    hashed_password: str = Field(...)
+    # KI Claude detected problem why/what: field was named `hashed_password` but the
+    # value is a plaintext password (the login compares plaintext too). Renamed to
+    # `password`; it is hashed server-side in register().
+    password: str = Field(...)  # KI Claude <KI-7>
 
 class UserOut(UserBase):
     id: int = Field(...)
@@ -49,5 +50,25 @@ class UserAPI(BaseAPI):
 
     @router.post("/register", response_model=UserOut)
     def register(self, user: UserIn):
-        # TODO: Make user and usersettings
-        pass
+        # KI Claude <KI-7>
+        # Create the user with a hashed password and give every new user their own
+        # UserSettings row (defaults come from the model).
+        existing = self.db.query(DBUser).filter(DBUser.username == user.username).first()
+        if existing:
+            raise HTTPException(status_code=409, detail="Username already exists")
+
+        db_user = DBUser(
+            username=user.username,
+            password=hash_password(user.password),
+            is_admin=user.is_admin,
+        )
+        self.db.add(db_user)
+        self.db.commit()
+        self.db.refresh(db_user)
+
+        db_settings = models.DBUserSettings(user_id=db_user.id)
+        self.db.add(db_settings)
+        self.db.commit()
+
+        return db_user
+        # KI END <KI-7>

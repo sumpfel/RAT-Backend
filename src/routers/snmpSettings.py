@@ -63,8 +63,9 @@ class SNMPSettingsAPI(BaseAPI):
         for key, value in snmp.model_dump().items(): # AI: How to automatically update DBNetworkObject with data from n0
             setattr(db_snmp, key, value)
 
+        # KI Claude detected problem why/what: refresh() before commit() discarded the edits.
+        self.db.commit()  # KI Claude <KI-9>
         self.db.refresh(db_snmp)
-        self.db.commit()
 
         raise HTTPException(status_code=status.HTTP_200_OK, detail="SNMPSettings updated")
 

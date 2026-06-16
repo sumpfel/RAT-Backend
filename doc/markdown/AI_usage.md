@@ -31,3 +31,172 @@ doc/assets/drawio/DB_Sketches.drawio
 prompt: we have done the 3 Normalform RM Diagramm and ERM Diagramm can you add us the second and first Normalform of the Database
 
 ---------
+
+
+=========  PERMISSION SYSTEM  =========
+
+Model: Claude (claude-opus-4-8) via Claude Code
+Date: 2026-06-16
+
+Overall user prompt (translated/summarized):
+"NetworkObjectPermission has an integer `permissions`:
+  0 = Hidden  (user may not see it; same as having no permission row at all)
+  1 = See     (user can see the device + interfaces; may add their own logins/snmp settings)
+  2 = Edit    (may add/edit/delete interfaces and change NO settings like name; cannot delete the NO)
+  3 = Admin   (may grant/change roles of users with LOWER rights than himself, i.e. 0..2)
+  4 = Owner   (may change Admins, grant/remove Owner, and delete the object)
+Add the permission checks to every route so not everyone can do everything, only users
+with the right level. Also document all AI usage (model, prompt, ...) and mark every
+changed spot in the code with `#KI Claude + <prompt number>`. While reading the code,
+note possible problems with `#KI Claude detected problem why/what:`."
+
+How the prompt numbers map to the code markers (search for `KI Claude <KI-N>`):
+
+<KI-1>  src/permissions.py  (NEW FILE)
+        Created a central helper module with the enum constants
+        (HIDDEN/SEE/EDIT/ADMIN/OWNER) plus:
+          - get_permission_level(db, user, network_object_id)
+              -> effective level; no row == HIDDEN; global is_admin == OWNER
+          - require_permission(db, user, network_object_id, min_level)
+              -> raises 404 if Hidden (so existence stays secret), 403 if too low.
+
+<KI-2>  src/routers/networkObject.py
+          - GET /          : only returns NOs where the user has See(1)+ (admins: all)
+          - POST /         : requires is_admin or user.canCreate; creator is made Owner
+                             of the new object (otherwise nobody could see it)
+          - PUT /{id}      : requires Edit(2)+
+          - DELETE /{id}   : requires Owner(4); also cleans up permission rows.
+                             Removed the bogus request body from DELETE.
+
+<KI-3>  src/routers/networkObjectInterface.py
+          - GET /          : only interfaces of NOs the user may See(1)+
+          - POST /         : Edit(2)+ on the target NO
+          - PUT /{id}      : Edit(2)+ on both old and new NO of the interface
+          - DELETE /{id}   : Edit(2)+ on the interface's NO
+
+<KI-4>  src/routers/networkObjectConnection.py
+          - GET /          : only connections touching a See(1)+ NO
+          - POST /         : Edit(2)+ on the NOs of both endpoint interfaces
+          - PUT /{id}      : Edit(2)+ on the NOs of all attached interfaces
+          - DELETE /{id}   : same; also fixed wrong-model bug (see problems below)
+
+<KI-5>  src/routers/networkObjectPermission.py
+          - Added `target_user_id` to the input (you must say WHO you grant to).
+          - assert_can_grant() enforces:
+              * only Admin(3)/Owner(4) may grant
+              * Admin may only touch users with strictly lower rights, and may
+                only assign levels 0..2
+              * Owner may assign anything incl. Admin/Owner
+          - GET /          : own rows + (for Admin/Owner) all rows on managed objects
+          - POST /         : grant/update with the rules above; upserts instead of
+                             creating duplicate (user, object) rows
+          - PUT /{id}      : same rules; forbids retargeting the row to another
+                             object/user
+          - DELETE /{id}   : treated as "set to Hidden(0)", same rules apply
+
+----- Problems Claude detected (marked in code with `#KI Claude detected problem why/what:`) -----
+
+1. networkObjectPermission.py (original): the route set `user_id = current_user.id`
+   and had no level checks at all -> ANY logged-in user could POST themselves
+   `permissions = 4` (Owner) on ANY object = complete privilege escalation. Fixed by
+   the whole <KI-5> rewrite.
+
+2. networkObjectConnection.py delete_item: used `models.DBNetworkObject` instead of
+   `models.DBNetworkObjectConnection`, so it looked up / deleted the wrong table.
+   Fixed to DBNetworkObjectConnection.
+
+3. networkObjectConnection.py create: `models.DBNetworkObjectConnection(**nOC.model_dump())`
+   included `nO1`/`nO2`, which are not columns of that table -> would raise at runtime.
+   Fixed with `model_dump(exclude={"nO1","nO2"})`.
+
+4. networkObjectPermission: no uniqueness on (user_id, network_object_id), so a user
+   could accumulate several conflicting permission rows. Mitigated by upserting in POST.
+   (NOTE: a real fix should be a DB UNIQUE constraint on those two columns in models.py.)
+
+----- Further problems Claude noticed but did NOT change (out of scope / need your decision) -----
+
+#KI Claude detected problem why/what:
+ a) auth.py: SECRET_KEY is hard-coded in the source and committed to git. It should
+    come from an environment variable / config file and the leaked key be rotated.
+ b) routers/userSettings.py references `current_user.user_settings_id`, but DBUser in
+    models.py has no such column (and DBUserSettings is never auto-created on register).
+    These routes will crash. Needs a model/relationship fix.
+ c) routers/user.py register() is just `pass` -> no users can be created via the API,
+    and there is no "create first admin" bootstrap (the TODO in the file).
+ d) UserIn uses `hashed_password` but expects a plaintext password; passwords are never
+    hashed/stored on register since register is unimplemented.
+ e) Login/SNMP routers only check `nOP.user_id == current_user.id` (ownership of the
+    permission row). That is correct for per-user logins, but they do NOT verify the
+    user still has at least See(1) on the underlying object. Probably fine, flagging it.
+
+---------
+
+
+=========  USER SETTINGS + ADMIN BOOTSTRAP  =========
+
+Model: Claude (claude-opus-4-8) via Claude Code
+Date: 2026-06-16
+
+User prompt (translated):
+"Can you fix userSettings: make every user get a userSettings on creation, and also
+make it so that on first start, when there is no DB yet, an admin user is created with
+password 'admin'."
+
+Prompt-number -> code marker mapping (search `KI Claude <KI-N>`):
+
+<KI-6>  src/models.py + src/routers/userSettings.py
+          - models.py: added a one-to-one `settings` relationship between DBUser and
+            DBUserSettings (the user_settings_id column the route used never existed).
+          - userSettings.py: look settings up by user_id via get_or_create_settings()
+            (lazily creates them for legacy users); fixed UserSettingsOut to map the
+            camelCase DB columns (showPorts/showInterfaces) to the snake_case API
+            fields via validation_alias; removed stray `from pip._internal...` import;
+            fixed refresh-before-commit bug that discarded edits.
+
+<KI-7>  src/routers/user.py
+          - Implemented register(): rejects duplicate usernames, hashes the password,
+            creates the user AND a DBUserSettings row for them.
+          - Renamed the misleading `hashed_password` input field to `password`
+            (the value is plaintext and is hashed server-side).
+
+<KI-8>  src/main.py
+          - create_default_admin(): on a fresh DB (no users) creates admin/admin with
+            is_admin + canCreate and its settings. Registered the userSettings router
+            (it was never included before).
+
+Verified with a smoke test (throwaway sqlite DB): bootstrap admin created, settings
+defaults present, relationship works, login verifies admin/admin, and UserSettingsOut
+serializes showPorts->show_ports correctly.
+
+This resolves earlier flagged problems (b), (c) and (d). Still open: (a) hard-coded
+SECRET_KEY, and the default admin password 'admin' should be changed after first login.
+
+---------
+
+
+=========  PUT PERSISTENCE BUG FIX  =========
+
+Model: Claude (claude-opus-4-8) via Claude Code
+Date: 2026-06-16
+
+User prompt (translated):
+"Is anything still missing before a C# frontend UI can be attached?"
+-> Frontend will be a C# desktop app (WPF/WinForms/MAUI), so CORS is not required.
+   User chose to fix only the refresh-before-commit bugs now.
+
+<KI-9>  src/routers/networkObject.py, networkObjectInterface.py,
+        networkObjectConnection.py, snmpSettings.py, login.py
+          - All PUT/edit handlers called self.db.refresh(obj) BEFORE self.db.commit().
+            refresh() reloads the row from the DB, throwing away the in-memory edits,
+            so updates were silently lost. Swapped to commit() first, then refresh().
+          - (The POST/create handlers were already in the correct order.)
+
+Verified with a throwaway-DB test: editing a NetworkObject's name now persists across
+a fresh session. Compiles clean.
+
+Noted but NOT changed (user deferred): no CORS middleware (fine for a desktop C#
+client using HttpClient, needed for any browser/Blazor frontend); PUT handlers
+`raise HTTPException(200)` instead of returning a success body; SECRET_KEY still
+hard-coded.
+
+---------
