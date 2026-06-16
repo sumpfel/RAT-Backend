@@ -239,3 +239,32 @@ Still open (unchanged): hard-coded SECRET_KEY; default admin password 'admin'; n
 (not needed for the desktop HttpClient client).
 
 ---------
+
+
+=========  CASCADE DELETE FOR NETWORKOBJECT  =========
+
+Model: Claude (claude-opus-4-8) via Claude Code
+Date: 2026-06-16
+
+Context: second pass on the C# client (RAT-Client prompt 14) made it edit/delete
+interfaces, connections, logins and permissions through the API. While testing the
+delete path, the delete route turned out to leave dangling rows.
+
+<KI-11>  src/routers/networkObject.py
+          #KI Claude detected problem why/what: delete_item only removed the
+          NetworkObject and its permission rows. Its interfaces (and the connections
+          those interfaces used, plus the logins / snmp settings on the permission
+          rows) stayed behind as orphans, and on the next graph load the client then
+          referenced interfaces whose object no longer exists. delete_item now
+          cascade-deletes: interfaces of the object -> the connections those interfaces
+          used -> logins + snmp settings on the object's permission rows -> the
+          permission rows -> the object itself.
+
+Verified against a throwaway DB with the live server: created two objects with one
+interface each and a connection between them, granted another user See on one object,
+then deleted that object. Its interface and the connection were gone afterwards while
+the other object's interface remained. (Minor, left as-is: the surviving interface's
+network_object_connection_id still points at the deleted connection; harmless because
+the client only rebuilds a connection when BOTH endpoints reference it.)
+
+---------

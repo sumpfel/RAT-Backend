@@ -111,6 +111,36 @@ class NetworkObjectAPI(BaseAPI):
         # KI END <KI-2>
         db_nO = self.get_or_404(self.db, models.DBNetworkObject, id)
 
+        # KI Claude <KI-11> detected problem why/what: deleting a NetworkObject only removed its
+        # permission rows, leaving its interfaces (and the connections / logins / snmp settings hanging
+        # off them) as dangling rows. On the next graph load the C# client then references interfaces
+        # whose object is gone. Cascade-delete everything that belongs to this object.
+        ifaces = self.db.query(models.DBNetworkObjectInterface).filter(
+            models.DBNetworkObjectInterface.network_object_id == id
+        ).all()
+        connection_ids = {i.network_object_connection_id for i in ifaces if i.network_object_connection_id}
+        for iface in ifaces:
+            self.db.delete(iface)
+        # delete the connections those interfaces used (the other endpoint's FK is cleared on object delete too)
+        for conn_id in connection_ids:
+            conn = self.db.query(models.DBNetworkObjectConnection).filter(
+                models.DBNetworkObjectConnection.id == conn_id
+            ).first()
+            if conn:
+                self.db.delete(conn)
+        # logins + snmp settings hang off the permission rows -> remove them before the permission rows
+        perm_ids = [p.id for p in self.db.query(models.DBNetworkObjectPermission).filter(
+            models.DBNetworkObjectPermission.network_object_id == id
+        ).all()]
+        if perm_ids:
+            self.db.query(models.DBLogin).filter(
+                models.DBLogin.network_object_permission_id.in_(perm_ids)
+            ).delete(synchronize_session=False)
+            self.db.query(models.DBSNMPSettings).filter(
+                models.DBSNMPSettings.network_object_permission_id.in_(perm_ids)
+            ).delete(synchronize_session=False)
+        # KI END <KI-11>
+
         # KI Claude <KI-2>: clean up permission rows so they don't dangle
         self.db.query(models.DBNetworkObjectPermission).filter(
             models.DBNetworkObjectPermission.network_object_id == id
