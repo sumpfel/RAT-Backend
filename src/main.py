@@ -3,14 +3,13 @@ from fastapi.exceptions import RequestValidationError
 import uvicorn
 from starlette import status
 from starlette.responses import JSONResponse
-
+import logging
 from database import engine, SessionLocal
 import models
 from auth import hash_password  # KI Claude <KI-8>
 from routers import user, userSettings, networkObject, networkObjectConnection, networkObjectInterface, networkObjectPermission, login, snmpSettings
 
 models.Base.metadata.create_all(bind=engine)
-
 
 # KI Claude <KI-8>
 # On first start (fresh DB / no users), create a default admin account
@@ -45,6 +44,19 @@ app = FastAPI(
     description="Backend for RAT(Remote Access Topologie)",
     version="1.0.0"
 )
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+    handlers=[logging.FileHandler("rat.tail"), logging.StreamHandler()]
+)
+logger = logging.getLogger(__name__)
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    response = await call_next(request)
+    logger.info("%s %s %s", request.method, request.url.path, response.status_code)
+    return response
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):

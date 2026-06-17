@@ -12,7 +12,7 @@ import base64
 
 SECRET_KEY = "OH9Mnk6%8XNk&3pJHgoYygf48Otd3mUpYSK8yk0"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 15
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 class Token(BaseModel):
     access_token: str
