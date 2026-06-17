@@ -85,6 +85,7 @@ credentials.json
 
 # ───────────── Logs ─────────────
 *.log
+*.tail
 logs/
 
 # ───────────── Editors / OS ─────────────
