@@ -33,6 +33,20 @@ class UserOut(UserBase):
 
     model_config = {"from_attributes": True, "populate_by_name": True}  # KI Claude <KI-10>
 
+# KI Claude <KI-12>
+# Edit-user payload. Every field is optional so the same endpoint serves both an admin
+# (who may change username / password / is_admin / can_create on anyone) and a normal
+# user editing only their own username + password. Admin-only fields are ignored for a
+# self-edit by a non-admin (enforced in the route).
+class UserEdit(BaseModel):
+    username: str | None = Field(default=None)
+    password: str | None = Field(default=None)
+    is_admin: bool | None = Field(default=None)
+    can_create: bool | None = Field(default=None, validation_alias="canCreate")
+
+    model_config = {"populate_by_name": True}
+# KI END <KI-12>
+
 @cbv(router)
 class UserAPI(BaseAPI):
 
@@ -87,3 +101,39 @@ class UserAPI(BaseAPI):
 
         return db_user
         # KI END <KI-7>
+
+    # KI Claude <KI-12>
+    # Edit a user. Authorization:
+    #   - a global admin may edit ANY user and ANY field (username/password/is_admin/can_create)
+    #   - a normal user may edit ONLY themselves, and only username + password
+    #     (is_admin / can_create from the payload are ignored for a self-edit by a non-admin)
+    @router.put("/{id}", response_model=UserOut)
+    def edit_user(self, id: int, edit: UserEdit, current_user: DBUser = Depends(get_current_user)):
+        db_user = self.get_or_404(self.db, DBUser, id)
+
+        is_self = current_user.id == db_user.id
+        if not current_user.is_admin and not is_self:
+            raise HTTPException(status_code=403, detail="You may only edit your own account")
+
+        # username (both admin and self may change it) — keep it unique
+        if edit.username is not None and edit.username != db_user.username:
+            clash = self.db.query(DBUser).filter(DBUser.username == edit.username).first()
+            if clash:
+                raise HTTPException(status_code=409, detail="Username already exists")
+            db_user.username = edit.username
+
+        # password (both admin and self)
+        if edit.password:
+            db_user.password = hash_password(edit.password)
+
+        # admin / can_create — only a global admin may change these
+        if current_user.is_admin:
+            if edit.is_admin is not None:
+                db_user.is_admin = edit.is_admin
+            if edit.can_create is not None:
+                db_user.canCreate = edit.can_create
+
+        self.db.commit()
+        self.db.refresh(db_user)
+        return db_user
+    # KI END <KI-12>

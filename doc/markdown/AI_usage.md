@@ -268,3 +268,32 @@ network_object_connection_id still points at the deleted connection; harmless be
 the client only rebuilds a connection when BOTH endpoints reference it.)
 
 ---------
+
+
+=========  EDIT USER ENDPOINT  =========
+
+Model: Claude (claude-opus-4-8) via Claude Code
+Date: 2026-06-17
+
+Context: the C# client needed a way to edit users (change username / password / admin /
+can_create). The API only had register (create) — EditUser had no endpoint.
+
+<KI-12>  src/routers/user.py
+          - Added a `UserEdit` model (all fields optional: username / password /
+            is_admin / can_create) and `PUT /user/{id}`. Authorization:
+              * a global admin may edit ANY user and ANY field
+              * a normal user may edit ONLY themselves, and only username + password
+                (is_admin / can_create from the payload are ignored for a non-admin
+                self-edit; editing any other user returns 403)
+            An empty/missing password leaves the current one unchanged; the password is
+            hashed server-side; username uniqueness is enforced (409 on clash).
+
+Verified against a throwaway DB: admin renames + promotes another user (200); a normal
+user self-edits name+password (200, re-login with the new password works); a normal user
+editing someone else is 403; a normal user self-edit trying to set is_admin/can_create is
+accepted but ignored (the row stays non-admin / can_create False).
+
+This is what the client's IDatabaseConnection.EditUser (PUT /user/{id}) talks to, used by
+the admin "Manage Users" Edit button and the per-user "Edit my account" in Settings.
+
+---------
