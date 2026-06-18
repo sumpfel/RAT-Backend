@@ -69,6 +69,14 @@ class NetworkObjectAPI(BaseAPI):
                 detail="You are not allowed to create NetworkObjects",
             )
         # KI END <KI-2>
+        db_nO_existing = self.db.query(models.DBNetworkObject).filter(models.DBNetworkObject.name == nO.name).first()
+
+        if db_nO_existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A NetworkObject with that name already exists",
+            )
+
         db_nO = models.DBNetworkObject(**nO.model_dump()) # AI: How to automatically convert nO to DBNetworkObject
         self.db.add(db_nO)
         self.db.commit()
