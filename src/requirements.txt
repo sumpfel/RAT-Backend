@@ -1,25 +1,30 @@
+# RAT-Backend — Python-Abhängigkeiten (pip)
+# Erzeugen einer Umgebung:  python -m venv .venv && .venv\Scripts\activate && pip install -r requirements.txt
+# Versionen entsprechen den im Projekt installierten/getesteten Ständen.
+
+# --- direkte Abhängigkeiten (im Quellcode importiert) ---
+fastapi==0.136.1            # Web-Framework / REST
+fastapi-restful==0.6.0      # Class-Based-Views (cbv) für die Router
+uvicorn==0.46.0             # ASGI-Server zum Starten der App
+SQLAlchemy==2.0.49          # ORM / Datenbankzugriff
+pydantic==2.13.3            # DTO-/Schema-Validierung
+python-jose==3.5.0          # JWT erstellen/prüfen (Auth)
+passlib==1.7.4              # Passwort-Hashing
+bcrypt==4.0.1               # bcrypt-Backend für passlib
+python-multipart==0.0.32    # OAuth2-Form-Login (POST /user/login)
+starlette==1.0.0            # von FastAPI genutzt (Requests/Responses/Status)
+
+# --- transitive Abhängigkeiten (durch obige eingezogen, fix gepinnt) ---
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.13.0
 click==8.3.3
 colorama==0.4.6
-fastapi==0.136.1
-fastapi-restful==0.6.0
 greenlet==3.5.0
 h11==0.16.0
 idna==3.13
 mypy_extensions==1.1.0
-psutil==5.9.8
-pydantic==2.13.3
 pydantic_core==2.46.3
-SQLAlchemy==2.0.49
-starlette==1.0.0
 typing-inspect==0.9.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
-uvicorn==0.46.0
-python-jose
-passlib
-bcrypt==4.0.1
-python-multipart
-django

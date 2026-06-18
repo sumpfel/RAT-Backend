@@ -48,6 +48,36 @@ A companion **frontend** lives in a separate repository *(link coming soon)*.
 
 ---
 
+## 🚀 Quick start
+
+Ready-to-use launcher scripts live in the **repository root**. Each one creates a Python
+virtual environment (`.venv`), installs the dependencies from `src/requirements.txt`, and
+starts the FastAPI server:
+
+| Script | Platform | Run it |
+|--------|----------|--------|
+| [`run.bat`](run.bat) | Windows (cmd / double-click) | `run.bat` |
+| [`run.ps1`](run.ps1) | Windows (PowerShell) | `powershell -ExecutionPolicy Bypass -File run.ps1` |
+| [`run.sh`](run.sh) | Linux / macOS | `./run.sh` |
+
+The server then runs at **http://127.0.0.1:8000** (Swagger UI at `/docs`). Host and port are
+configurable without editing code:
+
+```bash
+# Linux / macOS
+HOST=0.0.0.0 PORT=8080 ./run.sh
+RELOAD=1 ./run.sh            # auto-reload for development
+```
+```powershell
+# Windows (PowerShell)
+./run.ps1 -BindHost 0.0.0.0 -Port 8080
+./run.ps1 -Reload
+```
+
+> Requires **Python 3** on PATH. The first run installs dependencies and may take a minute.
+
+---
+
 ## 🗺️ Project structure
 
 ```
