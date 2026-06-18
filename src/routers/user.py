@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends
 from fastapi.security import OAuth2PasswordRequestForm
+from starlette import status  # KI Claude <KI-14>
 from fastapi_restful.cbv import cbv
 from pydantic import BaseModel, Field, field_validator, ValidationError
 from sqlalchemy.orm import Session
@@ -161,3 +162,42 @@ class UserAPI(BaseAPI):
         self.db.refresh(db_user)
         return db_user
     # KI END <KI-12>
+
+    # KI Claude <KI-14>
+    # Delete a user. Global-admin only; an admin may not delete themselves (so a system never
+    # ends up with no admin by accident). Cleans up everything that hangs off the user: their
+    # UserSettings, their NetworkObjectPermission rows, and the logins/SNMP settings stored against
+    # those permission rows. Otherwise those rows would dangle (and the C# graph load would break).
+    @router.delete("/{id}")
+    def delete_user(self, id: int, current_user: DBUser = Depends(get_current_user)):
+        if not current_user.is_admin:
+            raise HTTPException(status_code=403, detail="Only an admin may delete users")
+        if current_user.id == id:
+            raise HTTPException(status_code=400, detail="You cannot delete your own account")
+
+        db_user = self.get_or_404(self.db, DBUser, id)
+
+        # logins + snmp settings hang off the user's permission rows -> remove them first
+        perm_ids = [p.id for p in self.db.query(models.DBNetworkObjectPermission).filter(
+            models.DBNetworkObjectPermission.user_id == id
+        ).all()]
+        if perm_ids:
+            self.db.query(models.DBLogin).filter(
+                models.DBLogin.network_object_permission_id.in_(perm_ids)
+            ).delete(synchronize_session=False)
+            self.db.query(models.DBSNMPSettings).filter(
+                models.DBSNMPSettings.network_object_permission_id.in_(perm_ids)
+            ).delete(synchronize_session=False)
+        self.db.query(models.DBNetworkObjectPermission).filter(
+            models.DBNetworkObjectPermission.user_id == id
+        ).delete(synchronize_session=False)
+
+        # the user's own settings row
+        self.db.query(models.DBUserSettings).filter(
+            models.DBUserSettings.user_id == id
+        ).delete(synchronize_session=False)
+
+        self.db.delete(db_user)
+        self.db.commit()
+        raise HTTPException(status_code=status.HTTP_200_OK, detail="User deleted")
+    # KI END <KI-14>

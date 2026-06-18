@@ -320,3 +320,25 @@ Marked in code with `KI Claude <KI-13>`. Mirrors the C# client's RAT_Logic.Passw
 (same rules) so validation is consistent on both ends.
 
 ---------
+
+
+=========  DELETE USER ENDPOINT  =========
+
+Model: Claude (claude-opus-4-8) via Claude Code
+Date: 2026-06-18
+
+Context: a global admin needed to be able to delete users (the API only had register + edit).
+
+<KI-14>  src/routers/user.py
+          - Added `DELETE /user/{id}` (global-admin only). An admin may not delete their own
+            account (so the system can't be left with no admin by accident; 400). Cleans up
+            everything that hangs off the user before deleting them: their UserSettings, their
+            NetworkObjectPermission rows, and the Login / SNMPSettings rows stored against those
+            permission rows — otherwise those would dangle and the C# graph load would break.
+          - Added `from starlette import status` for the 200 result.
+
+This is what the client's IDatabaseConnection.DeleteUser (DELETE /user/{id}) now talks to, used by
+the admin "Manage Users" per-row Delete button. (Editing users — name/password/admin/can_create —
+was already covered by PUT /user/{id}, KI-12; password changes are validated by KI-13.)
+
+---------
