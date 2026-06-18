@@ -297,3 +297,26 @@ This is what the client's IDatabaseConnection.EditUser (PUT /user/{id}) talks to
 the admin "Manage Users" Edit button and the per-user "Edit my account" in Settings.
 
 ---------
+
+=========  PASSWORD POLICY  =========
+
+Model: Claude (claude-opus-4-8) via Claude Code
+Date: 2026-06-18
+
+Context: passwords were stored without any strength check (frontend or backend). The client now
+validates client-side (RAT_Logic.PasswordPolicy) and the backend must enforce the same so a weak
+password can never reach the database.
+
+<KI-13>  src/routers/user.py
+          - Added validate_password(password): enforces the policy
+              * at least 8 characters
+              * at least one letter
+              * at least one digit
+            Raises HTTP 400 with a clear message otherwise.
+          - Called from register() (new user) and from edit_user() when a new password is supplied
+            (an empty password on edit still means "leave unchanged", so it is not checked then).
+
+Marked in code with `KI Claude <KI-13>`. Mirrors the C# client's RAT_Logic.PasswordPolicy
+(same rules) so validation is consistent on both ends.
+
+---------

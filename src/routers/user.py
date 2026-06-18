@@ -12,6 +12,27 @@ from auth import Token, get_current_user, verify_password, create_access_token, 
 
 router = APIRouter(prefix="/user", tags=["User"])
 
+# KI Claude <KI-13>
+# Central password-policy check, used by both register() and edit_user() so a weak password
+# can never reach the database. Mirrors the rules the C# client validates client-side.
+#   - at least 8 characters
+#   - at least one letter
+#   - at least one digit
+# Raises HTTP 400 with a clear message if the password does not satisfy the policy.
+PASSWORD_MIN_LENGTH = 8
+
+def validate_password(password: str) -> None:
+    if password is None or len(password) < PASSWORD_MIN_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters long",
+        )
+    if not any(c.isalpha() for c in password):
+        raise HTTPException(status_code=400, detail="Password must contain at least one letter")
+    if not any(c.isdigit() for c in password):
+        raise HTTPException(status_code=400, detail="Password must contain at least one digit")
+# KI END <KI-13>
+
 
 class UserBase(BaseModel):
     username: str = Field(...)
@@ -85,6 +106,8 @@ class UserAPI(BaseAPI):
         if existing:
             raise HTTPException(status_code=409, detail="Username already exists")
 
+        validate_password(user.password)  # KI Claude <KI-13>: enforce the password policy
+
         db_user = DBUser(
             username=user.username,
             password=hash_password(user.password),
@@ -124,6 +147,7 @@ class UserAPI(BaseAPI):
 
         # password (both admin and self)
         if edit.password:
+            validate_password(edit.password)  # KI Claude <KI-13>: enforce the password policy on change
             db_user.password = hash_password(edit.password)
 
         # admin / can_create — only a global admin may change these
