@@ -17,10 +17,10 @@
 
 <br>
 
+[**Dokumentation**](doc/markdown/Dokumentation.md) &nbsp;•&nbsp;
 [**Bedienungsanleitung**](doc/markdown/Bedienungsanleitung.md) &nbsp;•&nbsp;
 [**Datenbank-Design**](doc/markdown/Database_Sketches.md) &nbsp;•&nbsp;
-[**Projekttagebuch**](doc/markdown/Projekttagebuch.md) &nbsp;•&nbsp;
-[**Doku**](doc/markdown/)
+[**Projekttagebuch**](doc/markdown/Projekttagebuch.md)
 
 </div>
 
@@ -122,6 +122,7 @@ RAT-Backend/
 │   ├── assets/                  # logo, sketches, DrawIO diagrams
 │   │   └── drawio/DB_Sketches_v2.drawio   # editable ERM / RM diagram
 │   ├── markdown/
+│   │   ├── Dokumentation.md         # full project documentation (one file)
 │   │   ├── Bedienungsanleitung.md   # usage + example requests
 │   │   ├── Database_Sketches.md     # normalization, ERM, RM
 │   │   ├── Projekttagebuch.md       # project diary (who/when/what)
