@@ -51,6 +51,24 @@ Nach dem Start:
 > **Standard-Admin:** Bei einer frischen Datenbank wird automatisch ein Admin-Account
 > `admin` / `admin` angelegt. **Bitte das Passwort nach dem ersten Login ändern.**
 
+### Direkt mit uvicorn starten (ohne Run-Skript)
+Vom **Projekt-Root** aus:
+```bash
+uvicorn src.main:app --host 127.0.0.1 --port 8000
+```
+(Voraussetzung: die Abhängigkeiten aus `requirements.txt` sind installiert.)
+
+### Datenbank initialisieren / Testdaten anlegen (optional)
+`init_db.py` legt die Tabellen an und füllt eine **frische** DB mit Dummy-Testdaten
+(zwei User `admin`/`bob`, zwei Geräte, Interfaces, eine Verbindung, Berechtigungen,
+ein Login und SNMP-Settings). Vom Projekt-Root:
+```bash
+python init_db.py
+```
+Es schreibt direkt in `src/RATBASE.db`. Ein erneuter Lauf auf einer bereits gefüllten
+DB überspringt das Seeding (DB-Datei löschen, um neu zu seeden). Der Server selbst
+initialisiert die DB beim Start ebenfalls — `init_db.py` ist also optional.
+
 ### Cloud-Datenbank (optional)
 Standardmäßig wird eine lokale SQLite-Datei genutzt. Für eine Cloud-DB
 (Supabase / Railway / PlanetScale) `src/.env.example` nach `src/.env` kopieren

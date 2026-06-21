@@ -80,14 +80,23 @@ Gemeinsam: Planung und ERM.
 **Projektstruktur (Auszug):**
 
 ```
-src/
-├── main.py            # App, Logging, Router-Registrierung, Default-Admin
-├── database.py        # Engine (DATABASE_URL / .env), Session
-├── models.py          # SQLAlchemy-Models (das Schema)
-├── auth.py            # JWT + Passwort-Hashing
-├── permissions.py     # Helfer für das Berechtigungssystem
-└── routers/           # je ein Modul pro Ressource + statistics.py
+RAT-Backend/
+├── requirements.txt   # Abhängigkeiten (bindet src/requirements.txt ein)
+├── init_db.py         # DB anlegen + Dummy-Testdaten
+├── doc/
+│   ├── DBI_Dokumentation_RAT-Backend.pdf
+│   └── erm.drawio
+└── src/
+    ├── main.py        # App, Logging, Router-Registrierung, Default-Admin
+    ├── database.py    # Engine (DATABASE_URL / .env), Session
+    ├── models.py      # SQLAlchemy-Models (das Schema)
+    ├── auth.py        # JWT + Passwort-Hashing
+    ├── permissions.py # Helfer für das Berechtigungssystem
+    └── routers/       # je ein Modul pro Ressource + statistics.py
 ```
+
+> Die API ist über **`uvicorn src.main:app`** (vom Projekt-Root) startbar; alle
+> Abhängigkeiten stehen in `requirements.txt`.
 
 ---
 
@@ -247,8 +256,18 @@ git clone https://github.com/sumpfel/RAT-Backend.git && cd RAT-Backend && set HO
 git clone https://github.com/sumpfel/RAT-Backend.git && cd RAT-Backend && ./run.sh
 ```
 
-Die Run-Skripte legen `.venv` an, installieren `src/requirements.txt` und starten den
+Die Run-Skripte legen `.venv` an, installieren `requirements.txt` und starten den
 Server. Danach: API unter `http://127.0.0.1:8000`, Swagger unter `/docs`.
+
+**Direkt mit uvicorn** (vom Projekt-Root, Abhängigkeiten installiert):
+```bash
+uvicorn src.main:app --host 127.0.0.1 --port 8000
+```
+
+**DB initialisieren + Testdaten** (optional):
+```bash
+python init_db.py     # legt Tabellen an und füllt eine frische src/RATBASE.db mit Dummy-Daten
+```
 
 **Beispiel — Login & ein Gerät anlegen:**
 

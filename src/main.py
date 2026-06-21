@@ -1,3 +1,14 @@
+# KI Claude <KI-20>
+# Make the app importable both as `main:app` (cwd == src/, used by run.sh) and as
+# `src.main:app` (cwd == project root, the required `uvicorn src.main:app` form).
+# The modules import each other flat (e.g. `from database import ...`), which only
+# resolves if src/ is on sys.path. When loaded as `src.main` that is not the case,
+# so we add this file's own directory (src/) to sys.path before the flat imports.
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# KI END <KI-20>
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 import uvicorn
@@ -51,10 +62,13 @@ app = FastAPI(
 #   - INFO  for normal requests (method, path, status code)
 #   - ERROR for unexpected errors (with the exception)
 # (Previously this logged to "rat.tail" and never logged errors.)
+# KI Claude <KI-20>: anchor api.log next to this module (src/api.log) so it lands in the
+# same place regardless of the working directory the server was started from.
+_LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "api.log")
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
-    handlers=[logging.FileHandler("api.log"), logging.StreamHandler()],
+    handlers=[logging.FileHandler(_LOG_FILE), logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
 

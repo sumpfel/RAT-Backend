@@ -34,7 +34,13 @@ def _load_dotenv() -> None:
 
 _load_dotenv()
 
-SQLALCHEMY_DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./RATBASE.db")
+# KI Claude <KI-20>
+# Default the SQLite file to an ABSOLUTE path next to this module (src/RATBASE.db) so the
+# server and init_db.py always agree on the same file, no matter the working directory
+# (e.g. `uvicorn src.main:app` from the project root vs. `uvicorn main:app` from src/).
+_DEFAULT_SQLITE = "sqlite:///" + os.path.join(os.path.dirname(os.path.abspath(__file__)), "RATBASE.db")
+SQLALCHEMY_DATABASE_URL = os.environ.get("DATABASE_URL", _DEFAULT_SQLITE)
+# KI END <KI-20>
 
 # check_same_thread is a SQLite-only argument; only pass it for SQLite URLs.
 connect_args = {"check_same_thread": False} if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else {}

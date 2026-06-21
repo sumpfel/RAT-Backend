@@ -1,0 +1,5 @@
+# RAT-Backend dependencies.
+# The full pinned list lives in src/requirements.txt; this root file (required by the
+# submission structure) just includes it, so `pip install -r requirements.txt` works from
+# the project root and stays in sync with src/requirements.txt automatically.
+-r src/requirements.txt
