@@ -6,8 +6,8 @@ geführt (`ADDED` / `FIXED` / `CHANGED` / `DOCS`).
 
 Mitwirkende:
 
-- **Christof** (git: `sumpfel`) – NetworkObject-, NetworkObjectConnection-,
-  NetworkObjectPermission-, Login-/SNMP-Logik, Projektplanung
+- **Christof** (git: `sumpfel`) – Routers (CRUD selbst, fortgeschrittene Abfragen mit
+  Joins/Aggregation mit KI-Unterstützung), Projektplanung
 - **Tobias** (git: `Pir4t3141`) – Datenbank/Models, User- und UserSettings-Logik,
   Auth/Token
 

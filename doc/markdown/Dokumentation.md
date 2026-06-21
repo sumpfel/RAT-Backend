@@ -60,7 +60,7 @@ C#-Desktop-Anwendung (WPF): <https://github.com/sumpfel/RAT-Client>.
 
 | Person | Git-Name | Verantwortung |
 |---|---|---|
-| **Christof Schaffer** | `sumpfel` | NetworkObject / NetworkObjectConnection / NetworkObjectInterface / NetworkObjectPermission / Login / SNMP, Berechtigungssystem |
+| **Christof Schaffer** | `sumpfel` | Routers — CRUD selbst geschrieben, fortgeschrittene Abfragen (Joins, Aggregation/Statistik) mit KI-Unterstützung |
 | **Tobias Reichart** | `Pir4t3141` | Datenbank / Models, User- & UserSettings-Logik, Token-Login, Security |
 
 Gemeinsam: Planung und ERM.
