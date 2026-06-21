@@ -438,3 +438,39 @@ permission-level change (the refresh-before-commit fix). All modules also compil
 (`python -m py_compile`).
 
 ---------
+
+
+=========  SUBMISSION STRUCTURE: uvicorn src.main:app + init_db.py  =========
+
+Model: Claude (claude-opus-4-8) via Claude Code
+Date: 2026-06-21
+
+User prompt (summarized): the submission requires the API to be startable via
+`uvicorn src.main:app`, an init_db.py at the project root, a complete requirements.txt, and a
+fixed doc layout (doc/DBI_Dokumentation_<name>.pdf + doc/erm.drawio). Make sure all of that holds;
+init_db.py should write directly into the DB file and seed dummy test data.
+
+<KI-20>  src/main.py, src/__init__.py, src/database.py, init_db.py (NEW), requirements.txt (NEW root)
+          - Problem: the modules import each other flat (`from database import ...`), which only
+            resolves when src/ is the cwd. `uvicorn src.main:app` (from the project root) therefore
+            crashed with ModuleNotFoundError. Fix: added src/__init__.py and, at the top of main.py,
+            insert this file's directory (src/) into sys.path before the flat imports. Now both
+            `uvicorn src.main:app` (root) and `uvicorn main:app` (src/) work.
+          - database.py: the default SQLite path was relative (`./RATBASE.db`), so the server (run
+            from root) and init_db.py disagreed on the file. Anchored the default to an ABSOLUTE
+            src/RATBASE.db. Likewise anchored api.log to src/api.log (was relative to cwd).
+          - init_db.py (NEW, project root): creates all tables and, on a fresh DB, seeds dummy test
+            data (admin/admin + bob, two NetworkObjects, two interfaces, a connection, four
+            permission rows, a login and SNMP settings). Writes directly into src/RATBASE.db
+            (override via DATABASE_URL). Idempotent: skips seeding if users already exist.
+          - requirements.txt (NEW, project root): `-r src/requirements.txt` so a root-level
+            `pip install -r requirements.txt` works and stays in sync with the pinned list.
+
+Verified: `uvicorn src.main:app` from the project root boots (/, /docs -> 200), admin login works,
+and /statistics/summary reflects the data init_db.py seeded (2 objects / 2 interfaces / 1 connection,
+AVG/SUM/MIN/MAX over speed). A fresh venv with ONLY requirements.txt installed imports the whole app.
+
+Docs placed for submission: doc/DBI_Dokumentation_RAT-Backend.pdf (the consolidated Dokumentation.md)
+and doc/erm.drawio (copy of doc/assets/drawio/DB_Sketches_v2.drawio).
+
+---------
