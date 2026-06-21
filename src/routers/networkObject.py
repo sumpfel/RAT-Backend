@@ -1,12 +1,11 @@
 import json
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query  # KI Claude <KI-17>
 from fastapi.params import Depends
 from fastapi_restful.cbv import cbv
 from pydantic import BaseModel, Field, field_validator, ValidationError
 from sqlalchemy import null
 from sqlalchemy.orm import Session
-from sqlalchemy.testing.pickleable import User
 from starlette import status
 
 from auth import get_current_user
@@ -42,22 +41,52 @@ class NetworkObjectAPI(BaseAPI):
     db: Session = Depends(get_db)
 
     @router.get("/", response_model=list[NetworkObjectOut])
-    def get_all_networkObjects(self, current_user: DBUser = Depends(get_current_user)):
+    def get_all_networkObjects(
+        self,
+        current_user: DBUser = Depends(get_current_user),
+        # KI Claude <KI-17>
+        # Extended filtering / sorting / pagination via query parameters. Every parameter
+        # is optional, so existing callers (the C# client) keep working unchanged.
+        name: str | None = Query(None, description="Case-insensitive substring search on the name"),
+        type: str | None = Query(None, description="Filter by exact device type (e.g. PC, Switch)"),
+        sort_by: str = Query("id", description="Sort field: id, name or type"),
+        order: str = Query("asc", pattern="^(asc|desc)$", description="Sort order: asc or desc"),
+        limit: int = Query(100, ge=1, le=500, description="Pagination: max rows to return"),
+        offset: int = Query(0, ge=0, description="Pagination: rows to skip"),
+        # KI END <KI-17>
+    ):
         # KI Claude <KI-2>
         # Only return NetworkObjects the user may see (See >= 1).
         # No permission row or permission 0 == Hidden -> excluded.
         # Global admins see everything.
-        if current_user.is_admin:
-            return self.db.query(models.DBNetworkObject).all()
-
-        visible_ids = self.db.query(models.DBNetworkObjectPermission.network_object_id).filter(
-            models.DBNetworkObjectPermission.user_id == current_user.id,
-            models.DBNetworkObjectPermission.permissions >= permissions.SEE,
-        )
-        return self.db.query(models.DBNetworkObject).filter(
-            models.DBNetworkObject.id.in_(visible_ids)
-        ).all()
+        query = self.db.query(models.DBNetworkObject)
+        if not current_user.is_admin:
+            visible_ids = self.db.query(models.DBNetworkObjectPermission.network_object_id).filter(
+                models.DBNetworkObjectPermission.user_id == current_user.id,
+                models.DBNetworkObjectPermission.permissions >= permissions.SEE,
+            )
+            query = query.filter(models.DBNetworkObject.id.in_(visible_ids))
         # KI END <KI-2>
+
+        # KI Claude <KI-17>
+        # Filtering (name search uses LIKE with a bound parameter -> no SQL injection).
+        if name:
+            query = query.filter(models.DBNetworkObject.name.ilike(f"%{name}%"))
+        if type:
+            query = query.filter(models.DBNetworkObject.type == type)
+
+        # Sorting (whitelist the column so an arbitrary string can't reach the SQL).
+        sort_columns = {
+            "id": models.DBNetworkObject.id,
+            "name": models.DBNetworkObject.name,
+            "type": models.DBNetworkObject.type,
+        }
+        sort_col = sort_columns.get(sort_by, models.DBNetworkObject.id)
+        query = query.order_by(sort_col.desc() if order == "desc" else sort_col.asc())
+
+        # Pagination
+        return query.offset(offset).limit(limit).all()
+        # KI END <KI-17>
 
     @router.post("/", response_model=NetworkObjectOut, status_code=201)
     def create_networkObject(self, nO: NetworkObjectIn, current_user: DBUser = Depends(get_current_user)):
@@ -95,7 +124,7 @@ class NetworkObjectAPI(BaseAPI):
         # KI END <KI-2>
         return db_nO
 
-    @router.put("/{id}", status_code=201)
+    @router.put("/{id}", status_code=200)  # KI Claude <KI-19>: an update returns 200, not 201
     def edit_networkObject(self, id:int, nO: NetworkObjectIn, current_user: DBUser = Depends(get_current_user)):
         # KI Claude <KI-2>: editing settings (name etc) needs Edit (>= 2)
         permissions.require_permission(self.db, current_user, id, permissions.EDIT)
@@ -110,7 +139,9 @@ class NetworkObjectAPI(BaseAPI):
         self.db.commit()  # KI Claude <KI-9>
         self.db.refresh(db_nO)
 
-        raise HTTPException(status_code=status.HTTP_200_OK, detail="NetworkObject updated")
+        # KI Claude <KI-19>: success is a normal 200 response, not a raised HTTPException
+        # (raising an exception for a successful update is wrong - exceptions are for errors).
+        return {"detail": "NetworkObject updated"}
 
     @router.delete("/{id}")
     def delete_item(self, id:int, current_user: DBUser = Depends(get_current_user)):
@@ -158,4 +189,5 @@ class NetworkObjectAPI(BaseAPI):
         self.db.delete(db_nO)
         self.db.commit()
 
-        raise HTTPException(status_code=status.HTTP_200_OK, detail="NetworkObject deleted")
+        # KI Claude <KI-19>: success returns a normal 200 body, not a raised HTTPException
+        return {"detail": "NetworkObject deleted"}

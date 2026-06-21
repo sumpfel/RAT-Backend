@@ -68,4 +68,5 @@ class UserAPI(BaseAPI):
         db_uS.showInterfaces = userSettings.show_interfaces
         self.db.commit()  # KI Claude detected problem why/what: refresh() before commit discarded the edits; commit first
         self.db.refresh(db_uS)
-        raise HTTPException(status_code=200)
+        # KI Claude <KI-19>: success returns a normal 200 body, not a raised HTTPException
+        return {"detail": "UserSettings updated"}

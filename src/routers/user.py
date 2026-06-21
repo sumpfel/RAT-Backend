@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query  # KI Claude <KI-17>
 from fastapi.params import Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from starlette import status  # KI Claude <KI-14>
@@ -94,8 +94,22 @@ class UserAPI(BaseAPI):
     # NetworkObjectPermission back to a username (Access Control tab) and to build
     # its IDatabaseConnection.GetAllUsers(). Only authenticated users may call it.
     @router.get("/", response_model=list[UserOut])
-    def get_all_users(self, current_user: DBUser = Depends(get_current_user)):
-        return self.db.query(DBUser).all()
+    def get_all_users(
+        self,
+        current_user: DBUser = Depends(get_current_user),
+        # KI Claude <KI-17>: optional username search + pagination (defaults keep old callers working)
+        username: str | None = Query(None, description="Case-insensitive substring search on the username"),
+        is_admin: bool | None = Query(None, description="Filter by admin flag"),
+        limit: int = Query(100, ge=1, le=500, description="Pagination: max rows to return"),
+        offset: int = Query(0, ge=0, description="Pagination: rows to skip"),
+    ):
+        query = self.db.query(DBUser)
+        if username:
+            query = query.filter(DBUser.username.ilike(f"%{username}%"))
+        if is_admin is not None:
+            query = query.filter(DBUser.is_admin == is_admin)
+        return query.order_by(DBUser.id.asc()).offset(offset).limit(limit).all()
+        # KI END <KI-17>
     # KI END <KI-10>
 
     @router.post("/register", response_model=UserOut)
@@ -199,5 +213,6 @@ class UserAPI(BaseAPI):
 
         self.db.delete(db_user)
         self.db.commit()
-        raise HTTPException(status_code=status.HTTP_200_OK, detail="User deleted")
+        # KI Claude <KI-19>: success returns a normal 200 body, not a raised HTTPException
+        return {"detail": "User deleted"}
     # KI END <KI-14>

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query  # KI Claude <KI-17>
 from fastapi.params import Depends
 from fastapi_restful.cbv import cbv
 from pydantic import BaseModel, Field
@@ -43,20 +43,38 @@ class NetworkObjectInterfaceAPI(BaseAPI):
     db: Session = Depends(get_db)
 
     @router.get("/", response_model=list[NetworkObjectInterfaceOut])
-    def get_all_networkObjectInterfaces(self, current_user: DBUser = Depends(get_current_user)):
+    def get_all_networkObjectInterfaces(
+        self,
+        current_user: DBUser = Depends(get_current_user),
+        # KI Claude <KI-17>: optional filtering / pagination (defaults keep old callers working)
+        network_object_id: int | None = Query(None, description="Only interfaces of this NetworkObject"),
+        name: str | None = Query(None, description="Case-insensitive substring search on the interface name"),
+        is_up: bool | None = Query(None, description="Filter by link state (interface up/down)"),
+        limit: int = Query(200, ge=1, le=1000, description="Pagination: max rows to return"),
+        offset: int = Query(0, ge=0, description="Pagination: rows to skip"),
+        # KI END <KI-17>
+    ):
         # KI Claude <KI-3>
         # Only return interfaces that belong to NetworkObjects the user may see (See >= 1).
-        if current_user.is_admin:
-            return self.db.query(models.DBNetworkObjectInterface).all()
-
-        visible_ids = self.db.query(models.DBNetworkObjectPermission.network_object_id).filter(
-            models.DBNetworkObjectPermission.user_id == current_user.id,
-            models.DBNetworkObjectPermission.permissions >= permissions.SEE,
-        )
-        return self.db.query(models.DBNetworkObjectInterface).filter(
-            models.DBNetworkObjectInterface.network_object_id.in_(visible_ids)
-        ).all()
+        query = self.db.query(models.DBNetworkObjectInterface)
+        if not current_user.is_admin:
+            visible_ids = self.db.query(models.DBNetworkObjectPermission.network_object_id).filter(
+                models.DBNetworkObjectPermission.user_id == current_user.id,
+                models.DBNetworkObjectPermission.permissions >= permissions.SEE,
+            )
+            query = query.filter(models.DBNetworkObjectInterface.network_object_id.in_(visible_ids))
         # KI END <KI-3>
+
+        # KI Claude <KI-17>: filtering (bound parameters) + pagination
+        if network_object_id is not None:
+            query = query.filter(models.DBNetworkObjectInterface.network_object_id == network_object_id)
+        if name:
+            query = query.filter(models.DBNetworkObjectInterface.name.ilike(f"%{name}%"))
+        if is_up is not None:
+            query = query.filter(models.DBNetworkObjectInterface.is_up == is_up)
+
+        return query.order_by(models.DBNetworkObjectInterface.id.asc()).offset(offset).limit(limit).all()
+        # KI END <KI-17>
 
     @router.post("/", response_model=NetworkObjectInterfaceOut, status_code=201)
     def create_networkObjectInterface(self, nOI: NetworkObjectInterfaceIn, current_user: DBUser = Depends(get_current_user)):
@@ -69,7 +87,7 @@ class NetworkObjectInterfaceAPI(BaseAPI):
         self.db.refresh(db_nOI)
         return db_nOI
 
-    @router.put("/{id}", status_code=201)
+    @router.put("/{id}", status_code=200)  # KI Claude <KI-19>: an update returns 200, not 201
     def edit_networkObjectInterface(self, id: int, nOI: NetworkObjectInterfaceIn, current_user: DBUser = Depends(get_current_user)):
         db_nOI = self.get_or_404(self.db, models.DBNetworkObjectInterface, id)
         # KI Claude <KI-3>: need Edit on the interface's current NetworkObject AND on the target one
@@ -84,7 +102,8 @@ class NetworkObjectInterfaceAPI(BaseAPI):
         self.db.commit()  # KI Claude <KI-9>
         self.db.refresh(db_nOI)
 
-        raise HTTPException(status_code=status.HTTP_200_OK)
+        # KI Claude <KI-19>: success returns a normal 200 body, not a raised HTTPException
+        return {"detail": "NetworkObjectInterface updated"}
 
     @router.delete("/{id}")
     def delete_networkObjectInterface(self, id: int, current_user: DBUser = Depends(get_current_user)):
@@ -95,4 +114,5 @@ class NetworkObjectInterfaceAPI(BaseAPI):
         self.db.delete(db_nOI)
         self.db.commit()
 
-        raise HTTPException(status_code=status.HTTP_200_OK)
+        # KI Claude <KI-19>: success returns a normal 200 body, not a raised HTTPException
+        return {"detail": "NetworkObjectInterface deleted"}

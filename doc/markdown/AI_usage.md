@@ -342,3 +342,99 @@ the admin "Manage Users" per-row Delete button. (Editing users — name/password
 was already covered by PUT /user/{id}, KI-12; password changes are validated by KI-13.)
 
 ---------
+
+
+=========  REQUIREMENTS PASS: LOGGING, AGGREGATION, PAGINATION/FILTER, CLOUD-DB, STATUS CODES  =========
+
+Model: Claude (claude-opus-4-8) via Claude Code
+Date: 2026-06-21
+
+Overall user prompt (translated/summarized):
+"Make sure these required points are met and that we only raise REAL error messages: at least one
+aggregation endpoint (GROUP BY + COUNT/SUM/AVG); HTTP status codes set correctly (200/201/400/404/
+409/401); parametrized queries everywhere (SQL-injection safe); a continuously kept project diary
+(who/when/what) in the same style as the frontend, built from the git commits. Also check the
+mandatory logging (Python logging module, INFO for requests, ERROR for errors, written to BOTH the
+console and a file api.log) and the four extra tasks: extended filtering (query params), pagination
+(limit/offset), a cloud database, and extended aggregation/statistics. Mark AI usage as before in
+AI_usage.md and in the code with `KI start / KI end` plus which prompt."
+
+Prompt-number -> code marker mapping (search `KI Claude <KI-N>`):
+
+<KI-15>  src/main.py
+          - Logging was writing to "rat.tail" and never logged errors. Changed the FileHandler to
+            "api.log" (the required filename) so logs go to BOTH the console and api.log.
+          - Added a global `@app.exception_handler(Exception)` that ERROR-logs any unhandled error
+            (with traceback) and returns a clean 500 (no stack trace / DB internals leaked).
+          - The validation handler now also logs validation failures as warnings.
+          - The existing http middleware keeps INFO-logging every request (method, path, status).
+
+<KI-16>  src/routers/statistics.py  (NEW FILE) + registered in src/main.py
+          - New read-only `/statistics` router with the required GROUP BY + COUNT/SUM/AVG:
+              * GET /statistics/summary            -> COUNT of objects/interfaces/connections plus
+                                                      AVG/SUM/MAX/MIN over connection speed
+              * GET /statistics/objects-by-type    -> GROUP BY NetworkObject.type, COUNT
+              * GET /statistics/connections-by-type-> GROUP BY connection.type, COUNT + AVG + SUM speed
+              * GET /statistics/interfaces-per-object-> GROUP BY object, COUNT of its interfaces
+          - Same visibility rules as the other routers: a normal user only sees stats over objects
+            they have See(1)+ on; a global admin sees everything (so stats can't leak hidden objects).
+          - All queries use the SQLAlchemy ORM with bound parameters (SQL-injection safe).
+
+<KI-17>  src/routers/networkObject.py, networkObjectInterface.py, networkObjectConnection.py, user.py
+          - Added optional query parameters to the GET list endpoints (every param has a default, so
+            the existing C# client keeps working unchanged):
+              * networkObject:      name (ILIKE search), type (filter), sort_by, order, limit, offset
+              * networkObjectInterface: network_object_id, name, is_up, limit, offset
+              * networkObjectConnection: name, type, min_speed, sort_by, order, limit, offset
+              * user:               username (search), is_admin, limit, offset
+          - Filtering uses bound LIKE/equality parameters; sorting uses a WHITELIST of allowed columns
+            (so an arbitrary sort string can never reach the SQL). Pagination via offset()/limit().
+
+<KI-18>  src/database.py + src/.env.example  (NEW FILE)
+          - The DB URL now comes from the DATABASE_URL environment variable (read from a real env var
+            or a gitignored `.env` next to database.py), with a fallback to the local SQLite file. This
+            lets the API be pointed at a Cloud database (Supabase / Railway / PlanetScale) WITHOUT a
+            code change — only set DATABASE_URL and install the matching driver (see .env.example).
+          - check_same_thread is only passed for SQLite URLs (it is a SQLite-only argument).
+          - NOTE: the actual cloud connection string + driver still have to be filled in by the team;
+            the code side is done.
+
+<KI-19>  src/routers/networkObject.py, networkObjectInterface.py, networkObjectConnection.py,
+         networkObjectPermission.py, snmpSettings.py, login.py, userSettings.py, user.py
+          - "Only real error messages": every successful PUT/DELETE used to `raise HTTPException(200)`
+            — raising an exception for a SUCCESS is wrong (exceptions are for errors, and it muddied
+            the status semantics). They now simply `return {"detail": "..."}` and the PUT decorators
+            were changed from status_code=201 to 200 (an update is 200, not 201) so the observed
+            status the C# client sees stays 200 as before.
+          #KI Claude detected problem why/what:
+          - PUT /networkObjectPermission/{id} called self.db.refresh() BEFORE self.db.commit(), so the
+            `permissions` change was reloaded away and the update silently did nothing (the same
+            refresh-before-commit bug fixed elsewhere as KI-9, but missed in this router). Fixed:
+            commit() first, then refresh().
+
+----- Status-code review (no change needed, confirmed correct) -----
+ 200 = successful GET / PUT / DELETE (now via a normal response body, KI-19)
+ 201 = successful POST/create (create_* handlers)
+ 400 = validation error (global handler) / password policy (KI-13) / bad permission edit (KI-5)
+ 401 = wrong credentials on login and invalid/expired JWT (user.py login, auth.get_current_user)
+ 404 = unknown id (BaseAPI.get_or_404) and hidden objects (permissions.require_permission)
+ 409 = duplicate username (register/edit_user) and duplicate NetworkObject name (create)
+
+----- SQL-injection review (no change needed, confirmed safe) -----
+ All DB access goes through the SQLAlchemy ORM / Query API, which always uses bound parameters.
+ The new filters (KI-17) and statistics (KI-16) use ILIKE/equality on column objects (bound) and a
+ whitelist for sort columns — no string-concatenated SQL anywhere.
+
+----- Project diary -----
+ Created doc/markdown/Projekttagebuch.md (who/when/what), derived from the git commits and written
+ in the frontend's ADDED/FIXED/CHANGED style. Mapping: sumpfel = Christof, Pir4t3141 = Tobias.
+
+Verified with a live smoke test against a throwaway SQLite DB (TestClient): bootstrap admin login
+(200), NetworkObject create (201), duplicate name (409), filtered+sorted list with pagination,
+PUT edit returns 200 with a body AND the change persists, the statistics endpoints return the
+GROUP BY / COUNT / AVG/SUM/MIN/MAX results, missing token -> 401, unknown id on PUT -> 404, and
+api.log is written. Separately verified that PUT /networkObjectPermission/{id} now persists the
+permission-level change (the refresh-before-commit fix). All modules also compile cleanly
+(`python -m py_compile`).
+
+---------

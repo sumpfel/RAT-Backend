@@ -54,7 +54,7 @@ class SNMPSettingsAPI(BaseAPI):
         self.db.refresh(db_snmp)
         return db_snmp
 
-    @router.put("/{id}", status_code=201)
+    @router.put("/{id}", status_code=200)  # KI Claude <KI-19>: an update returns 200, not 201
     def edit_snmpSettings(self, id: int, snmp: SNMPSettingsIn, current_user: DBUser = Depends(get_current_user)):
         db_snmp = self.get_or_404(self.db, models.DBSNMPSettings, id)
         self.check_permission_owner(db_snmp.network_object_permission_id, current_user)
@@ -67,7 +67,8 @@ class SNMPSettingsAPI(BaseAPI):
         self.db.commit()  # KI Claude <KI-9>
         self.db.refresh(db_snmp)
 
-        raise HTTPException(status_code=status.HTTP_200_OK, detail="SNMPSettings updated")
+        # KI Claude <KI-19>: success returns a normal 200 body, not a raised HTTPException
+        return {"detail": "SNMPSettings updated"}
 
     @router.delete("/{id}")
     def delete_snmpSettings(self, id: int, current_user: DBUser = Depends(get_current_user)):
@@ -77,4 +78,5 @@ class SNMPSettingsAPI(BaseAPI):
         self.db.delete(db_snmp)
         self.db.commit()
 
-        raise HTTPException(status_code=status.HTTP_200_OK, detail="SNMPSettings deleted")
+        # KI Claude <KI-19>: success returns a normal 200 body, not a raised HTTPException
+        return {"detail": "SNMPSettings deleted"}

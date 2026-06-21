@@ -131,7 +131,7 @@ class NetworkObjectPermissionAPI(BaseAPI):
         return db_nOP
         # KI END <KI-5>
 
-    @router.put("/{id}", status_code=201)
+    @router.put("/{id}", status_code=200)  # KI Claude <KI-19>: an update returns 200, not 201
     def edit_networkObjectPermission(self, id: int, nOP: NetworkObjectPermissionIn, current_user: DBUser = Depends(get_current_user)):
         db_nOP = self.get_or_404(self.db, models.DBNetworkObjectPermission, id)
 
@@ -148,10 +148,15 @@ class NetworkObjectPermissionAPI(BaseAPI):
         db_nOP.permissions = nOP.permissions
         # KI END <KI-5>
 
-        self.db.refresh(db_nOP)
+        # KI Claude <KI-19> detected problem why/what: refresh() BEFORE commit() reloaded the
+        # row from the DB and discarded the `permissions` edit above, so PUT silently did
+        # nothing (the same refresh-before-commit bug fixed elsewhere as KI-9, missed here).
+        # Commit first, then refresh.
         self.db.commit()
+        self.db.refresh(db_nOP)
 
-        raise HTTPException(status_code=status.HTTP_200_OK, detail="NetworkObjectPermission updated")
+        # KI Claude <KI-19>: success returns a normal 200 body, not a raised HTTPException
+        return {"detail": "NetworkObjectPermission updated"}
 
     @router.delete("/{id}")
     def delete_networkObjectPermission(self, id: int, current_user: DBUser = Depends(get_current_user)):
@@ -164,4 +169,5 @@ class NetworkObjectPermissionAPI(BaseAPI):
         self.db.delete(db_nOP)
         self.db.commit()
 
-        raise HTTPException(status_code=status.HTTP_200_OK, detail="NetworkObjectPermission deleted")
+        # KI Claude <KI-19>: success returns a normal 200 body, not a raised HTTPException
+        return {"detail": "NetworkObjectPermission deleted"}

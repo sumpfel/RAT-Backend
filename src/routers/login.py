@@ -56,7 +56,7 @@ class LoginAPI(BaseAPI):
         self.db.refresh(db_login)
         return db_login
 
-    @router.put("/{id}", status_code=201)
+    @router.put("/{id}", status_code=200)  # KI Claude <KI-19>: an update returns 200, not 201
     def edit_login(self, id: int, login: LoginIn, current_user: DBUser = Depends(get_current_user)):
         db_login = self.get_or_404(self.db, models.DBLogin, id)
         self.check_permission_owner(db_login.network_object_permission_id, current_user)
@@ -70,7 +70,8 @@ class LoginAPI(BaseAPI):
         self.db.commit()  # KI Claude <KI-9>
         self.db.refresh(db_login)
 
-        raise HTTPException(status_code=status.HTTP_200_OK)
+        # KI Claude <KI-19>: success returns a normal 200 body, not a raised HTTPException
+        return {"detail": "Login updated"}
 
     @router.delete("/{id}")
     def delete_login(self, id: int, current_user: DBUser = Depends(get_current_user)):
@@ -80,4 +81,5 @@ class LoginAPI(BaseAPI):
         self.db.delete(db_login)
         self.db.commit()
 
-        raise HTTPException(status_code=status.HTTP_200_OK)
+        # KI Claude <KI-19>: success returns a normal 200 body, not a raised HTTPException
+        return {"detail": "Login deleted"}
